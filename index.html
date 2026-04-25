@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liquidity Pair Matrix Agent — v2.5</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080d;--s1:#0d0f18;--s2:#11141f;--s3:#161b2a;
+  --b1:#1e2540;--b2:#263059;--b3:#2e3a6a;
+  --ac:#00e5ff;--ac2:#7c5cfc;--ac3:#ff5470;--ac4:#00d68f;--ac5:#ffb347;
+  --t1:#f0f2ff;--t2:#9aa5c8;--t3:#4e5d85;
+  --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+  --il:#22c55e;--pc:#f59e0b;--cp:#a855f7;--risk:#22d3ee;
+}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--sans);overflow:hidden}
+.shell{display:flex;flex-direction:column;height:100vh}
+/* TOPBAR */
+.topbar{display:flex;align-items:center;gap:5px;padding:0 12px;background:var(--s1);border-bottom:1px solid var(--b1);height:42px;flex-shrink:0}
+.logo{font-family:var(--mono);font-size:12px;color:var(--ac);letter-spacing:.08em;white-space:nowrap}
+.logo-sub{font-size:8px;color:var(--t3);font-family:var(--mono);margin-right:4px}
+.sep{width:1px;height:22px;background:var(--b2);margin:0 3px;flex-shrink:0}
+.stab{font-family:var(--mono);font-size:9px;padding:4px 9px;border-radius:3px;border:1px solid transparent;background:transparent;color:var(--t3);cursor:pointer;letter-spacing:.05em;transition:all .15s}
+.stab.on{background:var(--b2);color:var(--t1);border-color:var(--b3)}
+.scen-btn{font-family:var(--mono);font-size:9px;padding:4px 8px;border-radius:3px;border:1px solid var(--b2);background:transparent;color:var(--t3);cursor:pointer;transition:all .15s}
+.scen-btn.bear.on{border-color:var(--ac3);color:var(--ac3);background:rgba(255,84,112,.09)}
+.scen-btn.neutral.on{border-color:var(--ac);color:var(--ac);background:rgba(0,229,255,.09)}
+.scen-btn.bull.on{border-color:var(--ac4);color:var(--ac4);background:rgba(0,214,143,.09)}
+.action-grp{display:flex;gap:4px;margin-left:auto;align-items:center}
+.btn{font-family:var(--mono);font-size:9px;padding:4px 9px;border-radius:3px;border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;letter-spacing:.04em;transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--ac);color:var(--ac)}
+.btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.btn.save{border-color:rgba(0,214,143,.5);color:var(--ac4);background:rgba(0,214,143,.07)}
+.btn.save:hover{background:rgba(0,214,143,.16)}
+.btn.reset-b{border-color:rgba(255,84,112,.4);color:var(--ac3)}
+.btn.undo-b{border-color:rgba(255,179,71,.4);color:var(--ac5)}
+.btn.notes-b{border-color:rgba(124,92,252,.4);color:var(--ac2)}
+.dirty-dot{width:6px;height:6px;border-radius:50%;background:var(--ac5);display:none;animation:blink 1.5s infinite}
+.dirty-dot.show{display:inline-block}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.profile-chip{font-family:var(--mono);font-size:9px;padding:3px 7px;border-radius:3px;background:rgba(124,92,252,.15);color:var(--ac2);border:1px solid rgba(124,92,252,.3);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-badge{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:6px;background:rgba(0,214,143,.12);color:var(--ac4);border:1px solid rgba(0,214,143,.25);opacity:0;transition:opacity .4s;position:fixed;top:52px;right:12px;z-index:100}
+.saved-badge.show{opacity:1}
+/* MAIN */
+.main{display:grid;grid-template-columns:215px 1fr 265px;flex:1;overflow:hidden;position:relative}
+/* SIDEBAR */
+.sidebar{background:var(--s1);border-right:1px solid var(--b1);overflow-y:auto;padding:10px}
+.sec-label{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);margin:11px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--b1)}
+.sec-label:first-child{margin-top:0}
+.cv-row{margin-bottom:8px}
+.cv-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.cv-name{font-size:11px;color:var(--t2);font-weight:500}
+.cv-val{font-family:var(--mono);font-size:12px;color:var(--ac);font-weight:700}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;appearance:none;background:var(--b2);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ac);cursor:pointer;border:2px solid var(--bg)}
+.mini-bar{height:3px;background:var(--b2);border-radius:2px;margin-top:3px;overflow:hidden}
+.mini-fill{height:100%;border-radius:2px;background:var(--ac);transition:width .2s}
+.coord-block{margin-bottom:6px;padding:7px;background:var(--s2);border-radius:4px}
+.coord-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+.coord-name{font-size:11px;font-weight:600}
+.coord-xy{font-family:var(--mono);font-size:9px;color:var(--t3)}
+.coord-desc{font-size:9px;color:var(--t3);line-height:1.4}
+.pair-item{display:flex;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid var(--b1)}
+.pair-item:last-child{border-bottom:none}
+.pair-color-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pair-item-name{font-family:var(--mono);font-size:10px;flex:1;font-weight:700}
+.pair-item-type{font-size:7px;font-family:var(--mono);padding:1px 4px;border-radius:2px;background:var(--s3);color:var(--t3)}
+.pair-del-btn{background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;padding:0 2px;transition:color .1s}
+.pair-del-btn:hover{color:var(--ac3)}
+/* live data indicator */
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--ac4);display:inline-block;animation:blink 2s infinite;margin-right:4px}
+.live-dot.error{background:var(--ac3);animation:none}
+.live-dot.loading{background:var(--ac5)}
+/* MATRIX */
+.matrix-area{display:flex;flex-direction:column;overflow:hidden}
+.matrix-header{padding:7px 13px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--s1)}
+.mh-title{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.drag-hint{font-size:9px;color:var(--t3);font-family:var(--mono)}
+/* SVG layout: PAD=32, BT(bar)=9, NUM=10, GAP=3, TITLE=12
+   Total outside PAD needed: BT+NUM+GAP+TITLE = ~34px
+   So wrap padding = 46px all sides to give comfortable space */
+.matrix-svg-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:32px 32px 36px 38px;position:relative;min-height:0}
+#msvg{display:block;width:100%;height:100%;cursor:crosshair;user-select:none;touch-action:none}
+.profile-strip{padding:5px 13px;border-top:1px solid var(--b1);background:var(--s1);display:flex;align-items:center;gap:7px;flex-shrink:0;height:30px;overflow:hidden}
+.ptog{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;border:1px solid var(--b2);background:transparent;color:var(--t3);cursor:pointer;transition:all .15s;white-space:nowrap}
+.ptog.active-p{border-color:var(--ac2);color:var(--ac2);background:rgba(124,92,252,.1)}
+/* RIGHT */
+.right-panel{background:var(--s1);border-left:1px solid var(--b1);overflow-y:auto;display:flex;flex-direction:column}
+.rp-sec{padding:9px 12px;border-bottom:1px solid var(--b1)}
+.rp-label{font-family:var(--mono);font-size:8px;letter-spacing:.13em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.pair-row{display:flex;align-items:center;gap:5px;padding:5px 0;border-bottom:1px solid var(--b1)}
+.pair-row:last-child{border-bottom:none}
+.pdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pname{font-family:var(--mono);font-size:10px;color:var(--t1);flex:1;font-weight:700}
+.heat-pill{font-size:8px;font-family:var(--mono);padding:2px 5px;border-radius:7px;font-weight:700}
+.h-ideal{background:rgba(0,214,143,.15);color:var(--ac4);border:1px solid rgba(0,214,143,.3)}
+.h-close{background:rgba(0,229,255,.1);color:var(--ac);border:1px solid rgba(0,229,255,.2)}
+.h-mod{background:rgba(255,179,71,.1);color:var(--ac5);border:1px solid rgba(255,179,71,.2)}
+.h-far{background:rgba(255,84,112,.1);color:var(--ac3);border:1px solid rgba(255,84,112,.2)}
+.pdist{font-family:var(--mono);font-size:9px;color:var(--t3);min-width:28px;text-align:right}
+.pair-apr{font-family:var(--mono);font-size:9px;color:var(--ac4);min-width:36px;text-align:right}
+.analysis-text{font-size:11px;line-height:1.8;color:var(--t2);padding:8px;background:var(--s2);border-radius:4px;border-left:2px solid var(--ac2);min-height:60px;transition:opacity .3s}
+.analysis-text.loading{opacity:.3}
+.ai-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:7px;background:rgba(124,92,252,.15);color:var(--ac2);border:1px solid rgba(124,92,252,.25)}
+.pd{width:5px;height:5px;border-radius:50%;background:var(--ac2);animation:pda 1.5s infinite}
+@keyframes pda{0%,100%{opacity:1}50%{opacity:.25}}
+/* live data card */
+.live-card{padding:8px;background:var(--s2);border-radius:5px;border:1px solid var(--b1);margin-bottom:6px}
+.live-card-title{font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:4px;display:flex;align-items:center}
+.live-card-body{font-size:10px;color:var(--t2);line-height:1.5}
+.live-stat{display:flex;justify-content:space-between;padding:2px 0;font-size:10px}
+.live-stat-label{color:var(--t3)}
+.live-stat-val{font-family:var(--mono);color:var(--t1);font-weight:700}
+.live-stat-val.up{color:var(--ac4)}
+.live-stat-val.down{color:var(--ac3)}
+/* STEP1 */
+.step1-overlay{display:none;position:absolute;inset:0;background:var(--bg);z-index:10;overflow-y:auto;padding:20px}
+.step1-overlay.show{display:block}
+.cv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:680px;margin:0 auto}
+.cv-card{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:13px}
+.cv-card-name{font-size:13px;font-weight:700;margin-bottom:2px}
+.cv-card-desc{font-size:11px;color:var(--t3);margin-bottom:9px;line-height:1.5}
+.cv-ends{display:flex;justify-content:space-between;margin-top:4px}
+.cv-end{font-size:10px;color:var(--t3)}
+.profiles-box{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:14px;max-width:680px;margin:12px auto 0}
+.profile-slot{display:flex;align-items:center;gap:7px;padding:7px;border-radius:5px;border:1px solid var(--b1);margin-bottom:5px;cursor:pointer;transition:all .15s;background:var(--s2)}
+.profile-slot:hover{border-color:var(--ac2)}
+.profile-slot.active-slot{border-color:var(--ac2);background:rgba(124,92,252,.07)}
+.profile-slot.empty-slot{opacity:.4;cursor:default}
+.profile-slot.empty-slot:hover{border-color:var(--b1)}
+.slot-num{font-family:var(--mono);font-size:10px;color:var(--t3);width:18px;text-align:center}
+.slot-label{flex:1;font-size:12px;color:var(--t1);font-weight:500}
+.slot-meta{font-family:var(--mono);font-size:9px;color:var(--t3);white-space:nowrap}
+.slot-actions{display:flex;gap:3px}
+.slot-btn{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid var(--b2);background:transparent;color:var(--t2);cursor:pointer;transition:all .15s}
+.slot-btn:hover{border-color:var(--ac);color:var(--ac)}
+.slot-btn.danger:hover{border-color:var(--ac3);color:var(--ac3)}
+.suggestion-item{padding:10px;background:var(--s2);border-radius:5px;margin-bottom:7px;border-left:3px solid var(--ac2)}
+.sug-title{font-size:12px;font-weight:600;margin-bottom:3px}
+.sug-body{font-size:11px;color:var(--t2);line-height:1.6}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--s1);border:1px solid var(--b2);border-radius:11px;padding:22px;width:440px;max-width:95vw;max-height:88vh;overflow-y:auto}
+.modal-title{font-family:var(--mono);font-size:12px;letter-spacing:.08em;margin-bottom:9px;color:var(--t1)}
+.modal-body{font-size:12px;color:var(--t2);line-height:1.7;margin-bottom:14px}
+.modal-input{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:5px;padding:8px 11px;font-family:var(--mono);font-size:12px;color:var(--t1);outline:none;margin-bottom:10px}
+.modal-input:focus{border-color:var(--ac2)}
+.modal-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}
+.mbtn{font-family:var(--mono);font-size:11px;padding:7px 13px;border-radius:4px;cursor:pointer;border:1px solid var(--b2);background:transparent;color:var(--t2);transition:all .15s}
+.mbtn:hover{border-color:var(--ac);color:var(--ac)}
+.mbtn.danger{border-color:rgba(255,84,112,.4);color:var(--ac3)}
+.mbtn.danger:hover{background:rgba(255,84,112,.15)}
+.mbtn.confirm{background:var(--ac4);color:#000;border-color:var(--ac4);font-weight:700}
+.pair-search-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;max-height:300px;overflow-y:auto;margin:8px 0}
+.pair-option{padding:8px;background:var(--s2);border-radius:5px;border:1px solid var(--b1);cursor:pointer;transition:all .15s}
+.pair-option:hover{border-color:var(--ac2)}
+.pair-option-name{font-family:var(--mono);font-size:11px;font-weight:700;margin-bottom:2px}
+.pair-option-scores{font-size:9px;color:var(--t3);font-family:var(--mono)}
+/* NOTES */
+.notes-panel{position:fixed;right:0;top:42px;width:310px;height:calc(100vh - 42px);background:var(--s1);border-left:1px solid var(--b2);z-index:50;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.notes-panel.open{transform:translateX(0)}
+.notes-head{padding:11px 13px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
+.notes-title{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ac2)}
+.notes-close{background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px}
+.notes-close:hover{color:var(--t1)}
+.notes-body{flex:1;padding:10px;display:flex;flex-direction:column;gap:7px;overflow-y:auto}
+.notes-area{flex:0 0 120px;background:var(--s2);border:1px solid var(--b1);border-radius:4px;padding:8px;font-family:var(--mono);font-size:11px;color:var(--t1);resize:none;outline:none;line-height:1.7}
+.notes-area:focus{border-color:var(--ac2)}
+.notes-area::placeholder{color:var(--t3)}
+.fb-item{padding:7px;background:var(--s2);border-radius:4px;margin-bottom:5px;border-left:2px solid var(--ac2)}
+.fb-time{font-family:var(--mono);font-size:8px;color:var(--t3);margin-bottom:2px}
+.fb-text{font-size:11px;color:var(--t2);line-height:1.5}
+.fb-del{background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;float:right}
+.fb-del:hover{color:var(--ac3)}
+.sandbox-badge{position:fixed;bottom:10px;left:10px;font-family:var(--mono);font-size:8px;padding:3px 9px;border-radius:3px;background:rgba(124,92,252,.12);color:var(--ac2);border:1px solid rgba(124,92,252,.25);z-index:300;pointer-events:none}
+.undo-toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--s2);border:1px solid var(--ac5);border-radius:5px;padding:5px 13px;font-family:var(--mono);font-size:10px;color:var(--ac5);z-index:400;transition:transform .3s;pointer-events:none}
+.undo-toast.show{transform:translateX(-50%) translateY(0)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--s1)}::-webkit-scrollbar-thumb{background:var(--b3);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="topbar">
+  <span class="logo">Liquidity Pair Matrix Agent</span>
+  <span class="logo-sub">v2.2</span>
+  <div class="sep"></div>
+  <button class="stab" id="tab-scores" onclick="showTab('scores')">⚙ Score Values</button>
+  <button class="stab on" id="tab-matrix" onclick="showTab('matrix')">◎ Live Matrix</button>
+  <div class="sep"></div>
+  <button class="scen-btn bear" onclick="setScen('bear')">🐻 BEAR</button>
+  <button class="scen-btn neutral on" onclick="setScen('neutral')">⚖ NEUTRAL</button>
+  <button class="scen-btn bull" onclick="setScen('bull')">🐂 BULL</button>
+  <div class="sep"></div>
+  <div class="profile-chip" id="active-profile-chip">No profile</div>
+  <div class="action-grp">
+    <button class="btn undo-b" id="btn-undo" onclick="doUndo()" disabled>↩ UNDO</button>
+    <button class="btn save" onclick="doSave()">💾 SAVE</button>
+    <button class="btn reset-b" onclick="confirmReset()">↺ RESET</button>
+    <div class="sep"></div>
+    <button class="btn" onclick="refreshLiveData()" id="refresh-btn" title="Refresh DeFiLlama data">⟳ Live Data</button>
+    <button class="btn" id="live-toggle-btn" onclick="toggleFeature('live')" title="Toggle live data on/off" style="border-color:rgba(0,214,143,.4);color:var(--ac4)">● LIVE</button>
+    <button class="btn" id="ai-toggle-btn" onclick="toggleFeature('ai')" title="Toggle AI analysis on/off" style="border-color:rgba(124,92,252,.4);color:var(--ac2)">● AI</button>
+    <button class="btn notes-b" onclick="toggleNotes()">📝 FEEDBACK</button>
+    <button class="btn" onclick="exportState()">⬇ JSON</button>
+    <span class="dirty-dot" id="dirty-dot"></span>
+  </div>
+</div>
+<div class="main">
+  <!-- STEP 1 -->
+  <div class="step1-overlay" id="step1-overlay">
+    <div style="max-width:680px;margin:0 auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px">
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ac);margin-bottom:3px">SCORE YOUR CORE VALUES</div>
+          <div style="font-size:11px;color:var(--t3)">Rate each 1–10. Drag the User Preference point on the matrix to override and back-calculate these values.</div>
+        </div>
+        <button class="btn save" style="font-size:10px;padding:7px 14px" onclick="applyAndShowMatrix()">Apply & View Matrix →</button>
+      </div>
+      <div id="s1-profile-banner" style="padding:7px 11px;background:rgba(124,92,252,.1);border:1px solid rgba(124,92,252,.3);border-radius:5px;margin-bottom:11px;font-size:11px;color:var(--ac2);font-family:var(--mono)">No profile active</div>
+      <div class="cv-grid" id="cv-grid-full"></div>
+      <div class="profiles-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+          <span style="font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3)">Saved Profiles (10 slots)</span>
+          <button class="btn save" style="font-size:9px;padding:4px 9px" onclick="saveToNewSlot()">+ Save Current</button>
+        </div>
+        <div id="profile-slots"></div>
+      </div>
+      <!-- AI SUGGESTIONS -->
+      <div class="profiles-box" style="margin-top:12px">
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">AI Integration Roadmap — Real-Time Data Ideas</div>
+        <div id="ai-suggestions-list"></div>
+      </div>
+    </div>
+  </div>
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div style="padding:7px 8px;background:rgba(124,92,252,.1);border:1px solid rgba(124,92,252,.22);border-radius:4px;margin-bottom:9px">
+      <div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-bottom:2px">ACTIVE PROFILE</div>
+      <div id="sb-profile" style="color:var(--ac2);font-size:11px;font-weight:600">None</div>
+    </div>
+    <div class="sec-label">Core Values</div>
+    <div id="mini-sliders"></div>
+    <div class="sec-label">Intersection Points</div>
+    <div id="coord-list"></div>
+    <div class="sec-label">Live Data <span id="live-status-dot" class="live-dot loading" title="Fetching..."></span></div>
+    <div id="live-data-sidebar" style="font-size:10px;color:var(--t3);font-family:var(--mono)">Fetching DeFiLlama data...</div>
+    <div class="sec-label">LP Pairs on Matrix</div>
+    <div id="pair-list-sidebar"></div>
+    <div style="margin-top:6px"><button class="btn save" style="width:100%;font-size:9px;padding:5px" onclick="openAddPairModal()">+ Add LP Pair</button></div>
+    <div style="margin-top:4px"><button class="btn notes-b" style="width:100%;font-size:9px;padding:5px" onclick="openMemeModal()">+ Add MEME Pair</button></div>
+    <div class="sec-label">Undo History</div>
+    <div id="undo-history" style="font-size:9px;color:var(--t3);font-family:var(--mono)">No actions yet</div>
+  </div>
+  <!-- MATRIX -->
+  <div class="matrix-area">
+    <div class="matrix-header">
+      <span class="mh-title">Liquidity Pair Matrix · <span id="scen-label" style="color:var(--ac)">NEUTRAL</span> · <span id="data-freshness" style="color:var(--t3);font-size:8px">data loading...</span></span>
+      <span class="drag-hint">⊕ drag User Preference · 🔒 AI Suggested locked</span>
+    </div>
+    <div class="matrix-svg-wrap">
+      <svg id="msvg" viewBox="0 0 500 462" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="profile-strip">
+      <span style="font-family:var(--mono);font-size:8px;color:var(--t3);letter-spacing:.1em;flex-shrink:0">PROFILE:</span>
+      <div style="display:flex;gap:4px;flex:1;overflow:hidden" id="profile-toggle-bar"></div>
+    </div>
+  </div>
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-sec">
+      <div style="padding:5px 7px;background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);border-radius:4px;margin-bottom:7px">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--t3);margin-bottom:1px">PROFILE</div>
+        <div id="rp-profile" style="color:var(--ac2);font-size:11px;font-weight:600">None</div>
+      </div>
+      <div class="rp-label">Pair Rankings + Live APR</div>
+      <div id="pair-rank-live"></div>
+    </div>
+    <div class="rp-sec" style="flex:1">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div class="rp-label" style="margin:0">AI Analysis <span id="analysis-data-note" style="color:var(--ac4);font-size:8px"></span></div>
+        <div class="ai-badge"><span class="pd"></span>Live</div>
+      </div>
+      <div class="analysis-text" id="analysis-live">Adjust sliders or drag the User Preference point to generate AI analysis...</div>
+    </div>
+    <div class="rp-sec">
+      <div class="rp-label">Best Match</div>
+      <div id="best-match-box" style="padding:8px;background:var(--s2);border-radius:4px;font-size:11px;color:var(--t2)">—</div>
+    </div>
+    <div class="rp-sec">
+      <div class="rp-label">Live Pool Data <span class="live-dot" id="rp-live-dot" style="background:var(--ac5)"></span></div>
+      <div id="live-pool-cards" style="font-size:10px;color:var(--t3)">Fetching...</div>
+    </div>
+  </div>
+</div>
+</div>
+<!-- NOTES -->
+<div class="notes-panel" id="notes-panel">
+  <div class="notes-head"><span class="notes-title">📝 FEEDBACK</span><button class="notes-close" onclick="toggleNotes()">×</button></div>
+  <div class="notes-body">
+    <div style="font-size:10px;color:var(--t3);font-family:var(--mono);padding:6px;background:var(--s2);border-radius:4px" id="notes-meta">—</div>
+    <textarea class="notes-area" id="notes-area" placeholder="Feedback, bugs, ideas..."></textarea>
+    <div style="display:flex;gap:5px">
+      <button class="btn save" style="flex:1" onclick="addNote()">+ Add Note</button>
+      <button class="btn" onclick="clearNotes()">Clear</button>
+      <button class="btn notes-b" onclick="exportNotes()">⬇</button>
+    </div>
+    <div class="sec-label" style="margin-top:4px">Notes</div>
+    <div id="feedback-list"><div style="font-size:10px;color:var(--t3)">No notes yet.</div></div>
+  </div>
+</div>
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-body" id="modal-body"></div>
+    <input class="modal-input" id="modal-input" style="display:none" placeholder="Label...">
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+<div class="sandbox-badge">Liquidity Pair Matrix Agent — Sandbox v2.5 · DeFiLlama Live</div>
+<div class="undo-toast" id="undo-toast"></div>
+<div class="saved-badge" id="saved-badge">Saved ✓</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// SVG LAYOUT CONSTANTS
+// PAD = 43 (grid inset — increased from 32 for 5% grid reduction + CP label fit)
+// BT  = 9  (perimeter bar thickness)
+// NUM_GAP = 11 (space between bar and tick numbers)
+// TITLE_GAP = 11 (space between tick numbers and axis title)
+// Grid is 95% of original: GW=414 (was 436), GH=376 (was 396)
+// Numbers sit at: PAD - BT - 3  (just outside bar)
+// Title sits at:  PAD - BT - 14 (further out)
+// ══════════════════════════════════════════════════
+const W=500,H=462,PAD=43,GW=W-2*PAD,GH=H-2*PAD,BT=9;
+
+function toSVG(il,pc){return{x:PAD+(il-1)/9*GW, y:PAD+(pc-1)/9*GH}}
+function fromSVG(sx,sy){return{il:cl((sx-PAD)/GW*9+1,1,10),pc:cl((sy-PAD)/GH*9+1,1,10)}}
+function cl(v,a,b){return Math.max(a,Math.min(b,v))}
+
+// ══════════════════════════════════════════════════
+// PAIR LIBRARY — includes LEAST/LEAST zone pairs
+// ══════════════════════════════════════════════════
+const BLUECHIP_LIBRARY=[
+  // ── LEAST/LEAST ZONE (IL≤2, PC≥9) ──
+  {name:'USDC/USDT', il:1,pc:10,cp:10,risk:1, rank:1,  desc:'Stablecoin — near-zero IL, maximum safety', zone:'least-least'},
+  {name:'USDT/DAI',  il:1,pc:10,cp:10,risk:1, rank:3,  desc:'Stablecoin pair', zone:'least-least'},
+  {name:'FRAX/USDC', il:1,pc:10,cp:10,risk:1, rank:20, desc:'Algorithmic stable vs USDC', zone:'least-least'},
+  {name:'LUSD/USDC', il:1,pc:10,cp:9, risk:1, rank:35, desc:'CDP stable vs USDC', zone:'least-least'},
+  {name:'wstETH/ETH',il:2,pc:9, cp:9, risk:2, rank:7,  desc:'Liquid staking — both track ETH closely', zone:'least-least'},
+  {name:'rETH/ETH',  il:2,pc:9, cp:9, risk:2, rank:18, desc:'Rocket Pool ETH — correlated with ETH', zone:'least-least'},
+  {name:'cbETH/ETH', il:2,pc:9, cp:8, risk:2, rank:22, desc:'Coinbase staked ETH — near-pegged to ETH', zone:'least-least'},
+  {name:'sDAI/USDC', il:1,pc:10,cp:10,risk:1, rank:10, desc:'Yield-bearing DAI vs USDC', zone:'least-least'},
+  // ── STANDARD BLUE CHIPS ──
+  {name:'ETH/BTC',   il:4,pc:7, cp:7, risk:3, rank:2,  desc:'Blue chip correlated pair'},
+  {name:'BTC/USDC',  il:6,pc:4, cp:5, risk:6, rank:2,  desc:'BTC vs stable'},
+  {name:'ETH/USDC',  il:6,pc:4, cp:5, risk:6, rank:2,  desc:'ETH vs stable'},
+  {name:'ETH/USDT',  il:7,pc:4, cp:4, risk:7, rank:2,  desc:'ETH vs stable'},
+  {name:'BNB/BTC',   il:5,pc:6, cp:6, risk:5, rank:4,  desc:'Exchange token pair'},
+  {name:'BNB/ETH',   il:5,pc:6, cp:5, risk:5, rank:4,  desc:'Exchange token pair'},
+  {name:'SOL/USDC',  il:7,pc:3, cp:4, risk:7, rank:5,  desc:'L1 vs stable'},
+  {name:'SOL/ETH',   il:6,pc:5, cp:5, risk:6, rank:5,  desc:'L1 pair'},
+  {name:'MATIC/ETH', il:6,pc:5, cp:5, risk:6, rank:12, desc:'L2 vs ETH'},
+  {name:'AVAX/USDC', il:7,pc:3, cp:4, risk:7, rank:11, desc:'L1 vs stable'},
+  {name:'LINK/ETH',  il:6,pc:5, cp:5, risk:6, rank:15, desc:'Oracle vs ETH'},
+  {name:'UNI/ETH',   il:7,pc:4, cp:4, risk:7, rank:19, desc:'DEX token vs ETH'},
+  {name:'ARB/ETH',   il:7,pc:4, cp:4, risk:7, rank:20, desc:'L2 token vs ETH'},
+  {name:'OP/ETH',    il:7,pc:4, cp:4, risk:7, rank:23, desc:'L2 token vs ETH'},
+  {name:'DOT/ETH',   il:6,pc:5, cp:5, risk:6, rank:14, desc:'Polkadot vs ETH'},
+];
+
+const PAIR_COLORS=['#00e5ff','#7c5cfc','#ff5470','#00d68f','#ffb347','#f472b6','#34d399','#fb923c','#a78bfa','#22d3ee'];
+const SCEN_MOD={bear:{ilAdd:1.2,cpMult:0.8},neutral:{ilAdd:0,cpMult:1},bull:{ilAdd:-0.6,cpMult:1.1}};
+const CV_DEFS=[
+  {id:'il',  name:'IL Tolerance',         desc:'Impermanent loss you are willing to accept.',  min:'Avoid IL',    max:'Accept IL'},
+  {id:'pc',  name:'Pair Correlation',     desc:'Preference for highly correlated pairs.',      min:'Uncorrelated', max:'Highly corr.'},
+  {id:'cp',  name:'Capital Preservation', desc:'Importance of protecting your principal.',     min:'Yield first',  max:'Safety first'},
+  {id:'risk',name:'Risk Appetite',        desc:'Tolerance for volatile strategies.',            min:'Conservative', max:'Aggressive'},
+  {id:'cf',  name:'Cash Flow Priority',   desc:'Regular yield vs long-term growth.',            min:'Growth focus',  max:'Yield focus'},
+  {id:'em',  name:'Ease of Management',   desc:'Passive vs active management preference.',     min:'Active mgmt',  max:'Passive/auto'},
+];
+const DEFAULTS={scores:{il:5,pc:5,cp:5,risk:5,cf:5,em:5},scenario:'neutral'};
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let scores=J(DEFAULTS.scores), scenario='neutral';
+let userPt={il:5,pc:5}, aiPt={il:5,pc:5};
+let isDirty=false, dragging=null, aiTimer=null, lastAiSig='';
+let undoStack=[], notes=[], profiles=new Array(10).fill(null), activeProfileIdx=null;
+let liveData={}; // keyed by pair name → {apr, tvl, volume, il_adjusted}
+let liveDataLoaded=false, liveDataError=false;
+let featureLive=true, featureAI=true;
+let livePoolLibrary=[], livePoolsFetching=false, livePoolError=false;
+
+function toggleFeature(feat){
+  if(feat==='live'){
+    featureLive=!featureLive;
+    const btn=document.getElementById('live-toggle-btn');
+    btn.textContent=featureLive?'● LIVE':'○ LIVE';
+    btn.style.color=featureLive?'var(--ac4)':'var(--t3)';
+    btn.style.borderColor=featureLive?'rgba(0,214,143,.4)':'var(--b2)';
+    document.getElementById('refresh-btn').disabled=!featureLive;
+    const sidebar=document.getElementById('live-data-sidebar');
+    const rpcards=document.getElementById('live-pool-cards');
+    if(!featureLive){
+      if(sidebar)sidebar.innerHTML='<span style="color:var(--t3)">Live data disabled</span>';
+      if(rpcards)rpcards.innerHTML='<span style="color:var(--t3)">Live data disabled</span>';
+      document.getElementById('data-freshness').textContent='live data OFF';
+    } else {
+      refreshLiveData();
+    }
+  } else if(feat==='ai'){
+    featureAI=!featureAI;
+    const btn=document.getElementById('ai-toggle-btn');
+    btn.textContent=featureAI?'● AI':'○ AI';
+    btn.style.color=featureAI?'var(--ac2)':'var(--t3)';
+    btn.style.borderColor=featureAI?'rgba(124,92,252,.4)':'var(--b2)';
+    const el=document.getElementById('analysis-live');
+    if(!featureAI&&el){el.textContent='AI analysis disabled. Toggle on to enable.';el.classList.remove('loading');}
+    else if(featureAI){scheduleAI();}
+  }
+}
+
+let pairs=[
+  {name:'USDC/USDT',il:1,pc:10,cp:10,risk:1,color:PAIR_COLORS[0],type:'bluechip',draggable:false},
+  {name:'ETH/BTC',  il:4,pc:7, cp:7, risk:3,color:PAIR_COLORS[1],type:'bluechip',draggable:false},
+  {name:'BTC/USDC', il:6,pc:4, cp:5, risk:6,color:PAIR_COLORS[2],type:'bluechip',draggable:false},
+  {name:'ETH/USDT', il:7,pc:4, cp:4, risk:7,color:PAIR_COLORS[3],type:'bluechip',draggable:false},
+];
+
+function J(x){return JSON.parse(JSON.stringify(x))}
+
+// ══════════════════════════════════════════════════
+// MATH
+// ══════════════════════════════════════════════════
+function applyScen(p){const m=SCEN_MOD[scenario];return{...p,il:cl(p.il+m.ilAdd,1,10),cp:cl(p.cp*m.cpMult,1,10)}}
+function dist(p,t){const s=applyScen(p);return Math.sqrt((s.il-t.il)**2+(s.pc-t.pc)**2)}
+function hCls(d){return d<1.5?'h-ideal':d<3?'h-close':d<5?'h-mod':'h-far'}
+function hLbl(d){return d<1.5?'IDEAL':d<3?'CLOSE':d<5?'MOD':'FAR'}
+function calcAiPt(){
+  const u=scores,sc=scenario==='bear'?0.7:scenario==='bull'?-0.4:0;
+  aiPt={
+    il:parseFloat(cl(u.il*0.35+(10-u.cp)*0.3+(10-u.em)*0.2+u.cf*0.15+sc,1,10).toFixed(1)),
+    pc:parseFloat(cl(u.pc*0.4+(10-u.risk)*0.3+u.em*0.2+u.cf*0.1+(scenario==='bear'?0.4:0),1,10).toFixed(1))
+  };
+}
+function recalcUserPt(){
+  const u=scores;
+  userPt={
+    il:parseFloat(cl(u.il*0.5+(10-u.cp)*0.3+(10-u.em)*0.2,1,10).toFixed(1)),
+    pc:parseFloat(cl(u.pc*0.5+(10-u.risk)*0.3+u.em*0.2,1,10).toFixed(1))
+  };
+}
+function backCalcFromUserPt(){
+  scores.il=Math.round(cl(userPt.il,1,10));
+  scores.pc=Math.round(cl(userPt.pc,1,10));
+  scores.cp=Math.round(cl(11-userPt.il,1,10));
+  scores.risk=Math.round(cl(11-userPt.pc,1,10));
+  scores.cf=Math.round(cl((userPt.il+userPt.pc)/2,1,10));
+  scores.em=Math.round(cl(11-(userPt.il+userPt.pc)/2,1,10));
+  syncMiniSliders();syncStep1Sliders();
+}
+
+// ══════════════════════════════════════════════════
+// DEFI LLAMA LIVE DATA
+// ══════════════════════════════════════════════════
+// Map our pair names to DeFiLlama pool search terms
+const PAIR_TO_DEFILLAMA={
+  'USDC/USDT': {search:'USDC-USDT',   protocol:'uniswap-v3', knownPool:'0x3416cf6c708da44db2624d63ea0aaef7113527c6'},
+  'ETH/BTC':   {search:'WBTC-WETH',   protocol:'uniswap-v3', knownPool:'0xcbcdf9626bc03e24f779434178a73a0b4bad62ed'},
+  'BTC/USDC':  {search:'USDC-WBTC',   protocol:'uniswap-v3', knownPool:'0x99ac8ca7087fa4a2a1fb6357269965a2014abc35'},
+  'ETH/USDC':  {search:'USDC-WETH',   protocol:'uniswap-v3', knownPool:'0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640'},
+  'ETH/USDT':  {search:'USDT-WETH',   protocol:'uniswap-v3', knownPool:'0x4e68ccd3e89f51c3074ca5072bbac773960dfa36'},
+  'SOL/USDC':  {search:'SOL-USDC',    protocol:'orca',        knownPool:null},
+  'wstETH/ETH':{search:'WSTETH-WETH', protocol:'uniswap-v3', knownPool:'0x109830a1aaad605bbf02a9dfa7b0b92ec2fb7daa'},
+  'rETH/ETH':  {search:'RETH-WETH',   protocol:'uniswap-v3', knownPool:'0xa4e0faa58465a2d369aa21b3e42d43374c6f9613'},
+  'cbETH/ETH': {search:'CBETH-WETH',  protocol:'uniswap-v3', knownPool:'0x840deeef2f115cf50da625f7368c24af6fe74410'},
+  'FRAX/USDC': {search:'FRAX-USDC',   protocol:'uniswap-v3', knownPool:'0xc63b0708e2f7e69cb8a1df0e1389a98c35740773'},
+  'USDT/DAI':  {search:'DAI-USDT',    protocol:'uniswap-v3', knownPool:'0x6f48eca74b38d2936b02ab603ff4e36a6c0e3a77'},
+};
+
+async function refreshLiveData(){
+  if(!featureLive)return;
+  const btn=document.getElementById('refresh-btn');
+  const dot=document.getElementById('live-status-dot');
+  const rpdot=document.getElementById('rp-live-dot');
+  btn.textContent='⟳ Loading...';btn.disabled=true;
+  dot.className='live-dot loading';if(rpdot)rpdot.style.background='var(--ac5)';
+  document.getElementById('data-freshness').textContent='fetching...';
+
+  try{
+    // Fetch top Uniswap v3 pools from DeFiLlama yields API
+    const res=await fetch('https://yields.llama.fi/pools');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const allPools=data.data||[];
+
+    // For each of our pairs, find the best matching pool
+    for(const [pairName,meta] of Object.entries(PAIR_TO_DEFILLAMA)){
+      const searchTerms=meta.search.toLowerCase().split('-');
+      const candidates=allPools.filter(p=>{
+        const sym=(p.symbol||'').toLowerCase();
+        return searchTerms.every(t=>sym.includes(t)) && (p.project||'').toLowerCase().includes('uniswap');
+      });
+      // Sort by TVL descending, pick top
+      candidates.sort((a,b)=>(b.tvlUsd||0)-(a.tvlUsd||0));
+      const best=candidates[0];
+      if(best){
+        const apr=best.apy||0;
+        const tvl=best.tvlUsd||0;
+        // Estimate IL score adjustment: high volatility pools (non-stable) get IL bump in bear
+        const ilAdj=scenario==='bear'&&apr>20?0.5:0;
+        // Use known pool address if we have it, otherwise use DeFiLlama pool id
+        const knownAddr=meta.knownPool;
+        const poolAddr=knownAddr||best.pool||null;
+        const shortAddr=poolAddr?poolAddr.slice(0,6)+'...'+poolAddr.slice(-4):null;
+        liveData[pairName]={
+          apr:apr.toFixed(1),
+          tvl:fmtUSD(tvl),
+          volume:best.volumeUsd1d?fmtUSD(best.volumeUsd1d):null,
+          pool:best.pool,
+          poolAddr,
+          shortAddr,
+          chain:best.chain||'Ethereum',
+          ilAdj,
+          fresh:true,
+        };
+      }
+    }
+    liveDataLoaded=true;liveDataError=false;
+    dot.className='live-dot';if(rpdot)rpdot.style.background='var(--ac4)';
+    document.getElementById('data-freshness').textContent='data: DeFiLlama · '+new Date().toLocaleTimeString();
+    document.getElementById('analysis-data-note').textContent='+ live APR';
+  }catch(e){
+    liveDataError=true;
+    dot.className='live-dot error';
+    if(rpdot)rpdot.style.background='var(--ac3)';
+    document.getElementById('data-freshness').textContent='live data unavailable — using static scores';
+    document.getElementById('analysis-data-note').textContent='';
+  }
+  btn.textContent='⟳ Live Data';btn.disabled=false;
+  renderLiveDataSidebar();renderLivePoolCards();
+  updateRight();renderMatrix();scheduleAI();
+}
+
+function fmtUSD(v){
+  if(v>=1e9)return'$'+(v/1e9).toFixed(1)+'B';
+  if(v>=1e6)return'$'+(v/1e6).toFixed(1)+'M';
+  if(v>=1e3)return'$'+(v/1e3).toFixed(0)+'K';
+  return'$'+v.toFixed(0);
+}
+
+function renderLiveDataSidebar(){
+  const el=document.getElementById('live-data-sidebar');
+  if(!el)return;
+  if(liveDataError){el.innerHTML='<span style="color:var(--ac3)">DeFiLlama unreachable</span><br><span style="color:var(--t3)">CORS restriction in local file mode — run from claude.ai for live data</span>';return}
+  if(!liveDataLoaded){el.innerHTML='<span style="color:var(--ac5)">Loading...</span>';return}
+  const entries=Object.entries(liveData).filter(([,d])=>d.fresh).slice(0,4);
+  if(!entries.length){el.innerHTML='<span style="color:var(--t3)">No matches found</span>';return}
+  el.innerHTML=entries.map(([name,d])=>`
+    <div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--b1);font-family:var(--mono)">
+      <span style="font-size:9px;color:var(--t2)">${name}</span>
+      <span style="font-size:9px;color:var(--ac4)">${d.apr}% APR</span>
+    </div>`).join('');
+}
+
+function renderLivePoolCards(){
+  const el=document.getElementById('live-pool-cards');if(!el)return;
+  if(liveDataError){el.innerHTML='<span style="color:var(--ac3);font-size:10px">Live data requires API access (run from claude.ai)</span>';return}
+  if(!liveDataLoaded){el.innerHTML='<span style="color:var(--ac5)">Loading...</span>';return}
+  const entries=Object.entries(liveData).filter(([,d])=>d.fresh);
+  if(!entries.length){el.innerHTML='<span style="color:var(--t3)">No pool data found</span>';return}
+  el.innerHTML=entries.map(([name,d])=>{
+    const uniUrl=d.poolAddr&&d.chain!=='Solana'?`https://app.uniswap.org/explore/pools/ethereum/${d.poolAddr}`:null;
+    const addrHtml=d.shortAddr?`<div class="live-stat" style="margin-top:3px;padding-top:3px;border-top:1px solid var(--b1)"><span class="live-stat-label">Pool Address</span>${uniUrl?`<a href="${uniUrl}" target="_blank" title="Open pool on Uniswap" style="font-family:var(--mono);font-size:9px;color:var(--ac);text-decoration:none;border-bottom:1px dashed rgba(0,229,255,.4)" onmouseover="this.style.color='var(--ac4)'" onmouseout="this.style.color='var(--ac)'">${d.shortAddr} ↗</a>`:`<span class="live-stat-val" style="font-size:9px">${d.shortAddr}</span>`}</div>`:'';
+    return`<div class="live-card">
+      <div class="live-card-title"><span class="live-dot" style="width:5px;height:5px;margin-right:5px"></span><span style="color:var(--ac);font-weight:700">${name}</span><span style="margin-left:auto;color:var(--t3);font-size:8px">${d.chain}</span></div>
+      <div class="live-stat"><span class="live-stat-label">Fee APR</span><span class="live-stat-val up">${d.apr}%</span></div>
+      <div class="live-stat"><span class="live-stat-label">TVL</span><span class="live-stat-val">${d.tvl}</span></div>
+      ${d.volume?`<div class="live-stat"><span class="live-stat-label">24h Vol</span><span class="live-stat-val">${d.volume}</span></div>`:''}
+      ${addrHtml}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════
+// MATRIX RENDER
+// ══════════════════════════════════════════════════
+function renderMatrix(){
+  calcAiPt();
+  const svg=document.getElementById('msvg');
+  let s='';
+
+  // ── NO background zone fills (removed the faint red block) ──
+  // Grid lines only
+  for(let i=0;i<=9;i++){
+    const x=PAD+i*GW/9, y=PAD+i*GH/9;
+    s+=`<line x1="${x}" y1="${PAD}" x2="${x}" y2="${PAD+GH}" stroke="#1a2035" stroke-width="0.7"/>`;
+    s+=`<line x1="${PAD}" y1="${y}" x2="${PAD+GW}" y2="${y}" stroke="#1a2035" stroke-width="0.7"/>`;
+  }
+  s+=`<rect x="${PAD}" y="${PAD}" width="${GW}" height="${GH}" fill="none" stroke="#263059" stroke-width="1.2"/>`;
+
+  // ── PERIMETER BARS ──
+  s+=`<rect x="${PAD}" y="${PAD-BT}" width="${GW}" height="${BT}" fill="#22c55e" opacity="0.92" rx="2"/>`;
+  s+=`<rect x="${PAD-BT}" y="${PAD}" width="${BT}" height="${GH}" fill="#f59e0b" opacity="0.92" rx="2"/>`;
+  s+=`<rect x="${PAD}" y="${PAD+GH}" width="${GW}" height="${BT}" fill="#a855f7" opacity="0.92" rx="2"/>`;
+  s+=`<rect x="${PAD+GW}" y="${PAD}" width="${BT}" height="${GH}" fill="#22d3ee" opacity="0.92" rx="2"/>`;
+
+  // ── TICK NUMBERS — between bar and axis title ──
+  // Top IL: numbers at y = PAD-BT-3 (just above bar outer edge), title at PAD-BT-14
+  // Bottom CP: numbers at y = PAD+GH+BT+9, title at PAD+GH+BT+19
+  // Left PC: numbers at x = PAD-BT-3, title text x = PAD-BT-15
+  // Right Risk: numbers at x = PAD+GW+BT+3, title at PAD+GW+BT+15
+
+  for(let i=1;i<=9;i++){
+    const x=PAD+i*GW/9, y=PAD+i*GH/9;
+    // IL top (1..10 left→right)
+    s+=`<text x="${x}" y="${PAD-BT-3}" text-anchor="middle" dominant-baseline="auto" fill="#1a6030" font-size="8" font-family="Space Mono">${i+1}</text>`;
+    // CP bottom (10..1 left→right, so value = 10-i)
+    s+=`<text x="${x}" y="${PAD+GH+BT+9}" text-anchor="middle" dominant-baseline="hanging" fill="#6a2a9a" font-size="8" font-family="Space Mono">${10-i}</text>`;
+    // PC left (1..10 top→bottom, so value = i+1)
+    s+=`<text x="${PAD-BT-3}" y="${y}" dominant-baseline="central" text-anchor="end" fill="#7a5a00" font-size="8" font-family="Space Mono">${i+1}</text>`;
+    // Risk right (10..1 top→bottom, value = 10-i)
+    s+=`<text x="${PAD+GW+BT+3}" y="${y}" dominant-baseline="central" text-anchor="start" fill="#007a90" font-size="8" font-family="Space Mono">${10-i}</text>`;
+  }
+  // Corner numbers (1 not shown in loop above for left/right; handle explicitly)
+  // IL: 1 at far left
+  s+=`<text x="${PAD}" y="${PAD-BT-3}" text-anchor="middle" dominant-baseline="auto" fill="#1a6030" font-size="8" font-family="Space Mono">1</text>`;
+  // CP: 10 at far left bottom  (CP decreases left→right so leftmost = 10)
+  // (already handled: i=0 not in loop, leftmost CP = 10... leftmost x = PAD + 0*step = PAD)
+  // Actually loop starts i=1, so x for i=0 is just PAD. Let me add:
+  s+=`<text x="${PAD}" y="${PAD+GH+BT+9}" text-anchor="middle" dominant-baseline="hanging" fill="#6a2a9a" font-size="8" font-family="Space Mono">10</text>`;
+  // PC top (i=0 → y=PAD, value=1)
+  s+=`<text x="${PAD-BT-3}" y="${PAD}" dominant-baseline="central" text-anchor="end" fill="#7a5a00" font-size="8" font-family="Space Mono">1</text>`;
+  // Risk bottom (i=0 → y=PAD, value=10)
+  s+=`<text x="${PAD+GW+BT+3}" y="${PAD}" dominant-baseline="central" text-anchor="start" fill="#007a90" font-size="8" font-family="Space Mono">10</text>`;
+
+  // ── AXIS TITLES — further out, clear of numbers ──
+  // TOP: IL title + LEAST/MOST corners
+  const ty=PAD-BT-15;
+  s+=`<text x="${PAD+GW/2}" y="${ty}" text-anchor="middle" fill="#22c55e" font-size="10" font-family="Space Mono" font-weight="700" letter-spacing="2">IMPERMANENT LOSS</text>`;
+  s+=`<text x="${PAD+4}" y="${ty}" text-anchor="start" fill="#22c55e" font-size="9" font-family="Space Mono" font-weight="700">LEAST</text>`;
+  s+=`<text x="${PAD+GW-4}" y="${ty}" text-anchor="end" fill="#22c55e" font-size="9" font-family="Space Mono" font-weight="700">MOST</text>`;
+
+  // BOTTOM: CP title + MOST/LEAST corners
+  const by=PAD+GH+BT+26;
+  s+=`<text x="${PAD+GW/2}" y="${by}" text-anchor="middle" fill="#a855f7" font-size="10" font-family="Space Mono" font-weight="700" letter-spacing="2">CAPITAL PRESERVATION</text>`;
+  s+=`<text x="${PAD+4}" y="${by}" text-anchor="start" fill="#a855f7" font-size="9" font-family="Space Mono" font-weight="700">MOST</text>`;
+  s+=`<text x="${PAD+GW-4}" y="${by}" text-anchor="end" fill="#a855f7" font-size="9" font-family="Space Mono" font-weight="700">LEAST</text>`;
+
+  // LEFT: PC title (rotated) + MOST/LEAST
+  const lx=PAD-BT-16;
+  s+=`<text x="${lx}" y="${PAD+GH/2}" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="Space Mono" font-weight="700" letter-spacing="2" transform="rotate(-90,${lx},${PAD+GH/2})">PAIR CORRELATION</text>`;
+  s+=`<text x="${lx}" y="${PAD+7}" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="Space Mono" font-weight="700" transform="rotate(-90,${lx},${PAD+7})">LEAST</text>`;
+  s+=`<text x="${lx}" y="${PAD+GH-3}" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="Space Mono" font-weight="700" transform="rotate(-90,${lx},${PAD+GH-3})">MOST</text>`;
+
+  // RIGHT: Risk title + MOST/LEAST
+  const rx=PAD+GW+BT+16;
+  s+=`<text x="${rx}" y="${PAD+GH/2}" text-anchor="middle" fill="#22d3ee" font-size="10" font-family="Space Mono" font-weight="700" letter-spacing="2" transform="rotate(90,${rx},${PAD+GH/2})">RISK</text>`;
+  s+=`<text x="${rx}" y="${PAD+7}" text-anchor="middle" fill="#22d3ee" font-size="9" font-family="Space Mono" font-weight="700" transform="rotate(90,${rx},${PAD+7})">MOST</text>`;
+  s+=`<text x="${rx}" y="${PAD+GH-3}" text-anchor="middle" fill="#22d3ee" font-size="9" font-family="Space Mono" font-weight="700" transform="rotate(90,${rx},${PAD+GH-3})">LEAST</text>`;
+
+  // ── GUIDE LINES ──
+  const uc=toSVG(userPt.il,userPt.pc);
+  s+=`<line x1="${uc.x}" y1="${PAD}" x2="${uc.x}" y2="${PAD+GH}" stroke="rgba(255,140,0,.22)" stroke-width="1" stroke-dasharray="5,3"/>`;
+  s+=`<text x="${uc.x+3}" y="${PAD+GH*0.28}" fill="rgba(255,140,0,.42)" font-size="8" font-family="Space Mono" transform="rotate(90,${uc.x+3},${PAD+GH*0.28})">Cash Flow</text>`;
+  s+=`<line x1="${PAD}" y1="${uc.y}" x2="${PAD+GW}" y2="${uc.y}" stroke="rgba(0,214,143,.2)" stroke-width="1" stroke-dasharray="5,3"/>`;
+  s+=`<text x="${PAD+14}" y="${uc.y-5}" fill="rgba(0,214,143,.45)" font-size="8" font-family="Space Mono">Ease of Management</text>`;
+
+  // ── LP PAIRS (bluechip + meme) ──
+  // MEME pairs use raw il/pc so render position == hit-test position.
+  // Blue chip pairs use applyScen() + live IL adjustment as before.
+  pairs.forEach((p,idx)=>{
+    const ld=liveData[p.name];
+    let px, py;
+    if(p.type==='meme'){
+      const c=toSVG(p.il,p.pc);px=c.x;py=c.y;
+    } else {
+      const sp=applyScen(p);
+      let effIl=sp.il,effPc=sp.pc;
+      if(ld&&ld.ilAdj){effIl=cl(effIl+ld.ilAdj,1,10)}
+      const c=toSVG(effIl,effPc);px=c.x;py=c.y;
+    }
+    const lw=p.name.length*6+10;
+    let aprBadge='';
+    if(ld&&ld.apr&&ld.apr!=='0.0'){
+      aprBadge=`<text x="${px}" y="${py+22}" text-anchor="middle" fill="rgba(0,214,143,.7)" font-size="8" font-family="Space Mono">${ld.apr}% APR</text>`;
+    }
+    if(p.type==='meme'){
+      s+=`<circle cx="${px}" cy="${py}" r="15" fill="${p.color}" fill-opacity="0.06" stroke="${p.color}" stroke-width="0.8" stroke-dasharray="3,2"/>`;
+      s+=`<text x="${px}" y="${py+19}" text-anchor="middle" fill="rgba(255,179,71,.5)" font-size="7" font-family="Space Mono">MEME ⊕</text>`;
+    }
+    s+=`<line x1="${px-6}" y1="${py}" x2="${px+6}" y2="${py}" stroke="${p.color}" stroke-width="2.5" stroke-linecap="round"/>`;
+    s+=`<line x1="${px}" y1="${py-6}" x2="${px}" y2="${py+6}" stroke="${p.color}" stroke-width="2.5" stroke-linecap="round"/>`;
+    s+=`<rect x="${px-lw/2}" y="${py-22}" width="${lw}" height="13" rx="2" fill="rgba(7,8,13,.72)"/>`;
+    s+=`<text x="${px}" y="${py-12}" text-anchor="middle" fill="${p.color}" font-size="9" font-family="Space Mono" font-weight="700">${p.name}</text>`;
+    s+=aprBadge;
+  });
+
+  // ── AI SUGGESTED (locked) ──
+  const ac=toSVG(aiPt.il,aiPt.pc);
+  s+=`<circle cx="${ac.x}" cy="${ac.y}" r="12" fill="#ff9f1c" fill-opacity="0.1" stroke="#ff9f1c" stroke-width="0.8" stroke-dasharray="3,2"/>`;
+  s+=`<circle cx="${ac.x}" cy="${ac.y}" r="5" fill="#ff9f1c" stroke="#07080d" stroke-width="2"/>`;
+  s+=`<rect x="${ac.x+8}" y="${ac.y-16}" width="86" height="12" rx="2" fill="rgba(7,8,13,.82)"/>`;
+  s+=`<text x="${ac.x+12}" y="${ac.y-7}" fill="#ff9f1c" font-size="8" font-family="Space Mono">AI Suggested 🔒</text>`;
+
+  // ── USER PREFERENCE (draggable) ──
+  s+=`<g style="cursor:grab">`;
+  s+=`<circle cx="${uc.x}" cy="${uc.y}" r="20" fill="#7c5cfc" fill-opacity="0.06"/>`;
+  s+=`<circle cx="${uc.x}" cy="${uc.y}" r="12" fill="#7c5cfc" fill-opacity="0.14" stroke="#7c5cfc" stroke-width="1"/>`;
+  s+=`<circle cx="${uc.x}" cy="${uc.y}" r="6" fill="#7c5cfc" stroke="#07080d" stroke-width="2.5"/>`;
+  s+=`<rect x="${uc.x+10}" y="${uc.y-16}" width="100" height="12" rx="2" fill="rgba(7,8,13,.82)"/>`;
+  s+=`<text x="${uc.x+14}" y="${uc.y-7}" fill="#7c5cfc" font-size="8" font-family="Space Mono">User Preference ⊕</text>`;
+  s+=`</g>`;
+
+  svg.innerHTML=s;
+}
+
+// ══════════════════════════════════════════════════
+// DRAG
+// ══════════════════════════════════════════════════
+function setupDrag(){
+  // Called ONCE on init. Uses addEventListener so handlers persist across innerHTML changes.
+  const svg=document.getElementById('msvg');
+  svg.addEventListener('mousedown',e=>{startDrag(svgPt(e));e.preventDefault()},{passive:false});
+  svg.addEventListener('mousemove',e=>{if(dragging!==null)doDrag(svgPt(e))},{passive:true});
+  svg.addEventListener('mouseup',endDrag);
+  svg.addEventListener('mouseleave',endDrag);
+  svg.addEventListener('touchstart',e=>{e.preventDefault();startDrag(svgPtT(e))},{passive:false});
+  svg.addEventListener('touchmove',e=>{e.preventDefault();if(dragging!==null)doDrag(svgPtT(e))},{passive:false});
+  svg.addEventListener('touchend',endDrag,{passive:true});
+}
+function svgPt(e){const r=document.getElementById('msvg').getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+function svgPtT(e){const r=document.getElementById('msvg').getBoundingClientRect();return{x:(e.touches[0].clientX-r.left)*W/r.width,y:(e.touches[0].clientY-r.top)*H/r.height}}
+function startDrag(pt){
+  const uc=toSVG(userPt.il,userPt.pc);
+  if(Math.hypot(pt.x-uc.x,pt.y-uc.y)<32){
+    dragging='user';
+    document.getElementById('msvg').style.cursor='grabbing';
+    return;
+  }
+  // Check draggable meme pairs — raw il/pc matches renderMatrix() exactly
+  let nearest=-1,nearestDist=9999;
+  pairs.forEach((p,i)=>{
+    if(!p.draggable)return;
+    const{x,y}=toSVG(p.il,p.pc);
+    const d=Math.hypot(pt.x-x,pt.y-y);
+    if(d<nearestDist){nearestDist=d;nearest=i;}
+  });
+  if(nearest>=0&&nearestDist<40){
+    dragging=nearest;
+    document.getElementById('msvg').style.cursor='grabbing';
+  }
+}
+function doDrag(pt){
+  const cx=cl(pt.x,PAD,PAD+GW);
+  const cy=cl(pt.y,PAD,PAD+GH);
+  if(dragging==='user'){
+    const c=fromSVG(cx,cy);
+    userPt={il:parseFloat(c.il.toFixed(1)),pc:parseFloat(c.pc.toFixed(1))};
+    backCalcFromUserPt();
+    markDirty();_userPtMoved=true;
+    renderMatrix();updateSidebar();updateRight();scheduleAI();
+  } else if(typeof dragging==='number'){
+    const c=fromSVG(cx,cy);
+    pairs[dragging].il=parseFloat(c.il.toFixed(1));
+    pairs[dragging].pc=parseFloat(c.pc.toFixed(1));
+    markDirty();renderMatrix();updateSidebar();updateRight();
+  }
+}
+function endDrag(){
+  const wasDragging=dragging;
+  dragging=null;
+  const svg=document.getElementById('msvg');if(svg)svg.style.cursor='crosshair';
+  if(wasDragging==='user'&&_userPtMoved){snapshot('Drag User Pref');}
+  if(wasDragging==='user'&&activeProfileIdx!==null&&_userPtMoved){promptSaveAfterDrag();}
+  if(typeof wasDragging==='number'){
+    snapshot(`MEME drag: ${pairs[wasDragging]?.name||'pair'}`);
+    showToast('Position updated — click ✎ to re-score if needed');
+  }
+  _userPtMoved=false;
+}
+let _userPtMoved=false;
+function promptSaveAfterDrag(){
+  if(activeProfileIdx===null)return;
+  showModal('Profile Updated','You moved the User Preference point. Update your profile?',
+    [{label:'Save as New',cls:'confirm',fn:'saveToNewSlot();closeModal()'},{label:`Overwrite "${profiles[activeProfileIdx]?.label||'Current'}"`,cls:'',fn:`overwriteProfile(${activeProfileIdx});closeModal()`},{label:'Keep Exploring',cls:'',fn:'closeModal()'}],false);
+}
+
+// ══════════════════════════════════════════════════
+// MEME WIZARD — 4-step scoring modal
+// ══════════════════════════════════════════════════
+const MEME_STEPS=[
+  {dim:'il',  label:'Impermanent Loss',     q:'How volatile is this pair relative to each other?',          hint:'Highly correlated meme coins = lower IL. Uncorrelated = higher.',            lo:'Low IL',             hi:'High IL'},
+  {dim:'pc',  label:'Pair Correlation',     q:'How closely do these two tokens move in price?',             hint:'Same ecosystem or pegged = high. Unrelated memes = low.',                    lo:'Uncorrelated',       hi:'Highly correlated'},
+  {dim:'cp',  label:'Capital Preservation', q:'How likely are you to preserve your original capital?',      hint:'Meme coins are generally low — be honest with yourself.',                    lo:'Low preservation',   hi:'High preservation'},
+  {dim:'risk',label:'Risk',                 q:'Overall risk rating for this pair',                          hint:'Consider liquidity depth, project age, and team credibility.',               lo:'Low risk',           hi:'High risk'},
+];
+let _memeWiz=null;
+
+function openMemeModal(){
+  if(pairs.length>=10){showModal('Maximum Pairs','You can have up to 10 LP pairs on the matrix. Remove one first.',[{label:'OK',cls:'confirm',fn:'closeModal()'}],false);return}
+  _memeWiz={memeA:'',memeB:'',step:0,il:8,pc:8,cp:8,risk:8,editIdx:null};
+  _renderMemeWiz();
+}
+function openEditMemeModal(idx){
+  const p=pairs[idx];if(!p||p.type!=='meme')return;
+  _memeWiz={memeA:p.memeA,memeB:p.memeB,step:0,il:p.il,pc:p.pc,cp:p.cp,risk:p.risk,editIdx:idx};
+  _renderMemeWiz();
+}
+function _renderMemeWiz(){
+  const w=_memeWiz;if(!w)return;
+  const mo=document.getElementById('modal');
+  const title=document.getElementById('modal-title');
+  const body=document.getElementById('modal-body');
+  document.getElementById('modal-input').style.display='none';
+  const act=document.getElementById('modal-actions');
+  mo.classList.add('show');
+  if(w.step===0){
+    title.textContent=w.editIdx!==null?'Edit MEME Pair':'Add MEME Pair';
+    body.innerHTML=`<div style="font-size:11px;color:var(--t2);margin-bottom:10px">Enter the two token tickers for this MEME pair. You'll score it on 4 dimensions next.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px"><div><div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:4px">TOKEN A</div><input class="modal-input" id="meme-a" value="${w.memeA}" placeholder="e.g. PEPE" style="display:block;margin:0;text-transform:uppercase"></div><div><div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin-bottom:4px">TOKEN B</div><input class="modal-input" id="meme-b" value="${w.memeB}" placeholder="e.g. SHIB" style="display:block;margin:0;text-transform:uppercase"></div></div><div style="font-size:10px;color:var(--t3);padding:7px;background:rgba(255,179,71,.07);border-radius:4px;border:1px solid rgba(255,179,71,.2)">⚠ Default scores are 8 (conservative). You can lower any score on the next steps.</div>`;
+    act.innerHTML=`<button class="mbtn" onclick="closeModal()">Cancel</button><button class="mbtn confirm" onclick="_memeWizNext()">Next →</button>`;
+    setTimeout(()=>document.getElementById('meme-a')?.focus(),50);
+  } else {
+    const si=w.step-1;
+    const sd=MEME_STEPS[si];
+    const val=w[sd.dim];
+    const isLast=w.step===4;
+    title.textContent=`MEME Scoring — Step ${w.step} of 4`;
+    body.innerHTML=`<div style="font-family:var(--mono);font-size:9px;color:var(--ac5);letter-spacing:.08em;margin-bottom:8px">${w.memeA}/${w.memeB} · ${sd.label.toUpperCase()}</div><div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:6px">${sd.q}</div><div style="font-size:11px;color:var(--t3);margin-bottom:14px;padding:6px 8px;background:var(--s2);border-radius:4px;border-left:2px solid var(--ac5)">${sd.hint}</div><div style="display:flex;align-items:center;gap:10px;margin-bottom:5px"><span style="font-family:var(--mono);font-size:9px;color:var(--t3)">1</span><input type="range" min="1" max="10" value="${val}" id="meme-wiz-slider" style="flex:1" oninput="document.getElementById('meme-wiz-val').textContent=this.value;_memeWiz['${sd.dim}']=parseInt(this.value)"><span style="font-family:var(--mono);font-size:9px;color:var(--t3)">10</span><span id="meme-wiz-val" style="font-family:var(--mono);font-size:22px;color:var(--ac);font-weight:700;min-width:26px;text-align:right">${val}</span></div><div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t3);font-family:var(--mono)"><span>${sd.lo}</span><span>${sd.hi}</span></div>`;
+    act.innerHTML=`<button class="mbtn" onclick="closeModal()">Cancel</button><button class="mbtn" onclick="_memeWizBack()">← Back</button>${isLast?`<button class="mbtn confirm" onclick="_memeWizSave()">Save</button>`:`<button class="mbtn confirm" onclick="_memeWizNext()">Next →</button>`}`;
+  }
+}
+function _memeWizNext(){
+  const w=_memeWiz;if(!w)return;
+  if(w.step===0){
+    const a=(document.getElementById('meme-a')?.value||'').trim().toUpperCase();
+    const b=(document.getElementById('meme-b')?.value||'').trim().toUpperCase();
+    if(!a||!b){showToast('Enter both tickers');return}
+    w.memeA=a;w.memeB=b;
+  }
+  if(w.step<4){w.step++;_renderMemeWiz();}
+}
+function _memeWizBack(){
+  const w=_memeWiz;if(!w)return;
+  if(w.step>0){w.step--;_renderMemeWiz();}
+}
+function _memeWizSave(){
+  const w=_memeWiz;if(!w)return;
+  if(w.editIdx!==null){
+    const p=pairs[w.editIdx];
+    p.memeA=w.memeA;p.memeB=w.memeB;p.name=`${w.memeA}/${w.memeB}`;
+    p.il=w.il;p.pc=w.pc;p.cp=w.cp;p.risk=w.risk;
+    closeModal();_memeWiz=null;snapshot(`Edit MEME: ${p.name}`);renderMatrix();updateSidebar();updateRight();
+  } else {
+    const color=PAIR_COLORS[pairs.length%PAIR_COLORS.length];
+    pairs.push({name:`${w.memeA}/${w.memeB}`,il:w.il,pc:w.pc,cp:w.cp,risk:w.risk,color,type:'meme',draggable:true,memeA:w.memeA,memeB:w.memeB});
+    closeModal();_memeWiz=null;snapshot(`Add MEME: ${w.memeA}/${w.memeB}`);renderMatrix();updateSidebar();updateRight();scheduleAI();
+  }
+}
+
+// ══════════════════════════════════════════════════
+// ADD / REMOVE PAIRS
+// ══════════════════════════════════════════════════
+function openAddPairModal(){
+  const used=new Set(pairs.map(p=>p.name));
+  const avail=BLUECHIP_LIBRARY.filter(p=>!used.has(p.name));
+  if(pairs.length>=10){showModal('Maximum Pairs','You can have up to 10 pairs. Remove one first.',[{label:'OK',cls:'confirm',fn:'closeModal()'}],false);return}
+  let html=`<div style="font-size:11px;color:var(--t2);margin-bottom:8px">Select a blue chip pair (Uniswap v3 / top-50 CoinGecko):</div>`;
+  const ll=avail.filter(p=>p.zone==='least-least');
+  const std=avail.filter(p=>!p.zone);
+  if(ll.length){
+    html+=`<div style="font-family:var(--mono);font-size:9px;color:var(--ac4);margin-bottom:5px;letter-spacing:.08em">★ LEAST/LEAST ZONE — low IL, high correlation, safest</div>`;
+    html+=`<div class="pair-search-grid">`;
+    ll.forEach(p=>{html+=`<div class="pair-option" onclick="selectAndAddPair('${p.name}')"><div class="pair-option-name" style="color:var(--ac4)">${p.name}</div><div style="font-size:9px;color:var(--ac5)">CG #${p.rank}</div><div class="pair-option-scores">IL:${p.il} PC:${p.pc} CP:${p.cp} Risk:${p.risk}</div><div style="font-size:9px;color:var(--t3);margin-top:2px">${p.desc}</div></div>`});
+    html+=`</div>`;
+  }
+  if(std.length){
+    html+=`<div style="font-family:var(--mono);font-size:9px;color:var(--t3);margin:8px 0 5px;letter-spacing:.08em">STANDARD BLUE CHIP PAIRS</div>`;
+    html+=`<div class="pair-search-grid">`;
+    std.forEach(p=>{html+=`<div class="pair-option" onclick="selectAndAddPair('${p.name}')"><div class="pair-option-name">${p.name}</div><div style="font-size:9px;color:var(--ac5)">CG #${p.rank}</div><div class="pair-option-scores">IL:${p.il} PC:${p.pc} CP:${p.cp} Risk:${p.risk}</div><div style="font-size:9px;color:var(--t3);margin-top:2px">${p.desc}</div></div>`});
+    html+=`</div>`;
+  }
+  html+=`<div id="live-pool-section" style="margin-top:12px;border-top:1px solid var(--b1);padding-top:10px"></div>`;
+  document.getElementById('modal-title').textContent='Add LP Pair';
+  document.getElementById('modal-body').innerHTML=html;
+  document.getElementById('modal-input').style.display='none';
+  document.getElementById('modal-actions').innerHTML=`<button class="mbtn" onclick="closeModal()">Cancel</button>`;
+  document.getElementById('modal').classList.add('show');
+  renderLivePoolSection();
+  if(!livePoolLibrary.length&&!livePoolsFetching&&!livePoolError)fetchLiveTopPools();
+}
+function selectAndAddPair(name){
+  const lib=BLUECHIP_LIBRARY.find(p=>p.name===name);if(!lib)return;
+  const color=PAIR_COLORS[pairs.length%PAIR_COLORS.length];
+  pairs.push({...lib,color,type:'bluechip',draggable:false});
+  closeModal();snapshot(`Add: ${name}`);renderMatrix();updateSidebar();updateRight();scheduleAI();
+}
+function removePair(idx){
+  showModal('Remove Pair',`Remove ${pairs[idx].name}?`,[{label:'Cancel',cls:'',fn:'closeModal()'},{label:'Remove',cls:'danger',fn:`confirmRemovePair(${idx})`}],false);
+}
+function confirmRemovePair(idx){snapshot(`Remove: ${pairs[idx].name}`);pairs.splice(idx,1);closeModal();renderMatrix();updateSidebar();updateRight();scheduleAI()}
+
+// ══════════════════════════════════════════════════
+// LIVE POOL LIBRARY — DeFiLlama top 20 Uniswap pools by TVL
+// ══════════════════════════════════════════════════
+async function fetchLiveTopPools(){
+  if(livePoolsFetching)return;
+  livePoolsFetching=true;livePoolError=false;
+  renderLivePoolSection();
+  const STABLES=new Set(['USDC','USDT','DAI','FRAX','LUSD','BUSD','TUSD','GUSD','MIM','FDUSD','USDP','CRVUSD']);
+  const MAJORS=new Set(['WETH','WBTC','BTC','ETH','CBETH','WSTETH','RETH','STETH','WEETH','EZETH']);
+  try{
+    const res=await fetch('https://yields.llama.fi/pools');
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    const filtered=(data.data||[])
+      .filter(p=>(p.project||'').toLowerCase().includes('uniswap')&&(p.tvlUsd||0)>1000000)
+      .sort((a,b)=>(b.tvlUsd||0)-(a.tvlUsd||0));
+    const seen=new Set();
+    const unique=[];
+    for(const p of filtered){
+      const rawParts=(p.symbol||'').toUpperCase().split('-');
+      const parts=rawParts.filter(t=>t.length>0&&isNaN(t));
+      const a=parts[0]||'',b=parts[1]||'';
+      if(!a||!b)continue;
+      const nm=`${a}/${b}`;
+      if(seen.has(nm))continue;
+      seen.add(nm);
+      const aS=STABLES.has(a),bS=STABLES.has(b);
+      const aM=MAJORS.has(a),bM=MAJORS.has(b);
+      let il,pc;
+      if(aS&&bS){il=1;pc=10;}
+      else if(aS||bS){il=6;pc=4;}
+      else if(aM&&bM){il=4;pc=7;}
+      else{il=8;pc=2;}
+      const cp=pc,risk=11-pc;
+      unique.push({
+        name:nm,il,pc,cp,risk,
+        desc:`${p.project||'uniswap'} · ${p.chain||'Ethereum'}`,
+        tvl:fmtUSD(p.tvlUsd||0),
+        apr:(p.apy||0).toFixed(1),
+        poolAddr:p.pool||null,
+        shortAddr:p.pool?p.pool.slice(0,6)+'...'+p.pool.slice(-4):null,
+        chain:p.chain||'Ethereum',
+      });
+      if(unique.length>=20)break;
+    }
+    livePoolLibrary=unique;
+  }catch(e){
+    livePoolError=true;livePoolLibrary=[];
+  }
+  livePoolsFetching=false;
+  renderLivePoolSection();
+}
+
+function renderLivePoolSection(){
+  const el=document.getElementById('live-pool-section');if(!el)return;
+  const used=new Set(pairs.map(p=>p.name));
+  const hdr=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
+    <div style="font-family:var(--mono);font-size:9px;color:var(--ac);letter-spacing:.08em">LIVE TOP 20 BY TVL — DeFiLlama Uniswap</div>
+    <button class="btn" style="font-size:9px;padding:3px 8px" onclick="livePoolLibrary=[];livePoolError=false;fetchLiveTopPools()">⟳ Refresh</button>
+  </div>`;
+  if(livePoolsFetching){
+    el.innerHTML=hdr+`<div style="text-align:center;padding:16px;color:var(--ac5);font-family:var(--mono);font-size:10px">⟳ Fetching live pools from DeFiLlama...</div>`;
+    return;
+  }
+  if(livePoolError){
+    el.innerHTML=hdr+`<div style="color:var(--ac3);font-size:10px;font-family:var(--mono);padding:6px 0">Fetch failed — CORS blocks local file access. Run from a web server or claude.ai for live data.</div>`;
+    return;
+  }
+  if(!livePoolLibrary.length){
+    el.innerHTML=hdr+`<div style="color:var(--t3);font-size:10px;font-family:var(--mono);padding:6px 0">No results. Click ⟳ Refresh to load.</div>`;
+    return;
+  }
+  const cards=livePoolLibrary.map((lp,i)=>{
+    const added=used.has(lp.name);
+    return`<div class="pair-option" onclick="${added?'':` selectAndAddLivePool(${i})`}" style="${added?'opacity:.38;cursor:default':''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+        <div class="pair-option-name" style="color:${added?'var(--t3)':'var(--ac)'}">${lp.name}</div>
+        ${added?`<span style="font-family:var(--mono);font-size:8px;color:var(--t3)">Added</span>`:''}
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--ac4)">${lp.apr}% APR · ${lp.tvl}</div>
+      <div class="pair-option-scores">IL:${lp.il} PC:${lp.pc} CP:${lp.cp} Risk:${lp.risk}</div>
+      <div style="font-size:9px;color:var(--t3);margin-top:2px">${lp.chain}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=hdr+`<div class="pair-search-grid">${cards}</div>`;
+}
+
+function selectAndAddLivePool(idx){
+  const lp=livePoolLibrary[idx];if(!lp)return;
+  if(pairs.length>=10){showModal('Maximum Pairs','You can have up to 10 LP pairs. Remove one first.',[{label:'OK',cls:'confirm',fn:'closeModal()'}],false);return;}
+  const color=PAIR_COLORS[pairs.length%PAIR_COLORS.length];
+  pairs.push({name:lp.name,il:lp.il,pc:lp.pc,cp:lp.cp,risk:lp.risk,color,type:'bluechip',draggable:false});
+  liveData[lp.name]={apr:lp.apr,tvl:lp.tvl,poolAddr:lp.poolAddr,shortAddr:lp.shortAddr,chain:lp.chain,fresh:true,volume:null};
+  closeModal();snapshot(`Add: ${lp.name}`);renderMatrix();updateSidebar();updateRight();scheduleAI();
+}
+
+// ══════════════════════════════════════════════════
+// SIDEBAR + RIGHT
+// ══════════════════════════════════════════════════
+function buildMiniSliders(){
+  document.getElementById('mini-sliders').innerHTML=CV_DEFS.map(d=>`<div class="cv-row"><div class="cv-head"><span class="cv-name">${d.name}</span><span class="cv-val" id="mv-${d.id}">${scores[d.id]}</span></div><input type="range" min="1" max="10" value="${scores[d.id]}" id="ms-${d.id}" oninput="onMini('${d.id}',this.value)"><div class="mini-bar"><div class="mini-fill" id="mf-${d.id}" style="width:${scores[d.id]*10}%"></div></div></div>`).join('');
+}
+function syncMiniSliders(){CV_DEFS.forEach(d=>{const e=document.getElementById('ms-'+d.id);if(e){e.value=scores[d.id];document.getElementById('mv-'+d.id).textContent=scores[d.id];document.getElementById('mf-'+d.id).style.width=(scores[d.id]*10)+'%'}})}
+function syncStep1Sliders(){CV_DEFS.forEach(d=>{const e=document.getElementById('fs-'+d.id);if(e){e.value=scores[d.id];document.getElementById('fv-'+d.id).textContent=scores[d.id];document.getElementById('fb-'+d.id).style.width=(scores[d.id]*10)+'%'}})}
+function onMini(id,val){snapshot(`Slider:${id}→${val}`);scores[id]=parseInt(val);document.getElementById('mv-'+id).textContent=val;document.getElementById('mf-'+id).style.width=(val*10)+'%';const fs=document.getElementById('fs-'+id);if(fs){fs.value=val;document.getElementById('fv-'+id).textContent=val;document.getElementById('fb-'+id).style.width=(val*10)+'%'}recalcUserPt();markDirty();renderMatrix();updateSidebar();updateRight();scheduleAI()}
+function updateSidebar(){
+  document.getElementById('coord-list').innerHTML=`<div class="coord-block" style="border-left:2px solid #7c5cfc"><div class="coord-top"><span class="coord-name" style="color:#7c5cfc">User Preference</span><span class="coord-xy">IL:${userPt.il.toFixed(1)} PC:${userPt.pc.toFixed(1)}</span></div><div class="coord-desc">Draggable ⊕ — back-calcs all 6 CV scores</div></div><div class="coord-block" style="border-left:2px solid #ff9f1c"><div class="coord-top"><span class="coord-name" style="color:#ff9f1c">AI Suggested 🔒</span><span class="coord-xy">IL:${aiPt.il.toFixed(1)} PC:${aiPt.pc.toFixed(1)}</span></div><div class="coord-desc">Locked — CV scores + ${scenario.toUpperCase()}</div></div>`;
+  document.getElementById('pair-list-sidebar').innerHTML=pairs.length?pairs.map((p,i)=>{
+    const isMeme=p.type==='meme';
+    const editBtn=isMeme?`<button onclick="openEditMemeModal(${i})" title="Edit & re-score" style="font-size:9px;font-family:var(--mono);color:var(--ac5);background:none;border:none;cursor:pointer;padding:0 2px;line-height:1">✎</button>`:'';
+    return`<div class="pair-item"><div class="pair-color-dot" style="background:${isMeme?'#ffb347':p.color}"></div><span class="pair-item-name" style="color:${p.color}">${p.name}</span><span class="pair-item-type">${isMeme?'MEME':'BLUE'}</span>${editBtn}<button class="pair-del-btn" onclick="removePair(${i})">×</button></div>`;
+  }).join(''):'<div style="font-size:9px;color:var(--t3);padding:4px 0;font-family:var(--mono)">No pairs added</div>';
+  updateProfileDisplay();
+}
+function updateRight(){
+  const ranked=pairs.map((p,i)=>({...p,d:dist(p,userPt),i})).sort((a,b)=>a.d-b.d);
+  document.getElementById('pair-rank-live').innerHTML=ranked.map(p=>{
+    const ld=liveData[p.name];
+    const aprStr=ld&&ld.apr&&ld.apr!=='0.0'?`<span class="pair-apr">${ld.apr}%</span>`:'';
+    return`<div class="pair-row"><div class="pdot" style="background:${p.color}"></div><span class="pname">${p.name}</span><span class="${hCls(p.d)} heat-pill">${hLbl(p.d)}</span><span class="pdist">Δ${p.d.toFixed(1)}</span>${aprStr}</div>`;
+  }).join('');
+  const best=ranked[0];
+  const bld=liveData[best.name];
+  document.getElementById('best-match-box').innerHTML=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:4px"><div class="pdot" style="background:${best.color}"></div><span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${best.color}">${best.name}</span><span class="${hCls(best.d)} heat-pill">${hLbl(best.d)}</span></div><div style="font-size:10px;color:var(--t3)">Distance: <span style="font-family:var(--mono);color:var(--t2)">${best.d.toFixed(2)}</span>${bld&&bld.apr&&bld.apr!=='0.0'?` · <span style="color:var(--ac4)">APR: ${bld.apr}%</span>`:''}</div>`;
+}
+
+// ══════════════════════════════════════════════════
+// AI ANALYSIS — enriched with live data
+// ══════════════════════════════════════════════════
+function scheduleAI(){clearTimeout(aiTimer);aiTimer=setTimeout(runAI,1000)}
+async function runAI(){
+  if(!featureAI)return;
+  const ranked=pairs.map(p=>({...p,d:dist(p,userPt)})).sort((a,b)=>a.d-b.d);
+  const sig=`${userPt.il.toFixed(1)}_${userPt.pc.toFixed(1)}_${scenario}_${liveDataLoaded}`;
+  if(sig===lastAiSig)return;lastAiSig=sig;
+  const el=document.getElementById('analysis-live');
+  el.classList.add('loading');el.textContent='Analysing...';
+  // Build live data context
+  const liveCtx=liveDataLoaded?'\nLive DeFiLlama data: '+
+    Object.entries(liveData).filter(([,d])=>d.fresh&&d.apr!=='0.0').map(([n,d])=>`${n} APR=${d.apr}% TVL=${d.tvl}`).join(', '):'';
+  const pairList=ranked.map((p,i)=>`${i+1}.${p.name} Δ${p.d.toFixed(1)}(${hLbl(p.d)})`).join(', ');
+  const prompt=`DeFi expert, Uniswap v3 baseline. Matrix bottom-left=safest (USDC/USDT IL=1,PC=10). User Pref: IL=${userPt.il.toFixed(1)},PC=${userPt.pc.toFixed(1)}. AI Suggested: IL=${aiPt.il.toFixed(1)},PC=${aiPt.pc.toFixed(1)}. Scenario: ${scenario.toUpperCase()}.${liveCtx}\nCV: IL=${scores.il},PC=${scores.pc},CP=${scores.cp},Risk=${scores.risk},CF=${scores.cf},EM=${scores.em}. Rankings: ${pairList}.\nWrite 3 direct sentences: 1) what this position reveals about investment strategy 2) why ${ranked[0].name} is the best match${liveDataLoaded?' referencing its live APR if notable':''} 3) one specific actionable recommendation for ${scenario} scenario. Under 85 words, direct prose.`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:220,messages:[{role:'user',content:prompt}]})});
+    const d=await r.json();const t=d.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+    el.classList.remove('loading');
+    el.innerHTML=t.replace(/\b(USDC\/USDT|ETH\/BTC|BTC\/USDC|ETH\/USDC|ETH\/USDT|SOL\/USDC|wstETH\/ETH|rETH\/ETH|FRAX\/USDC)\b/g,m=>`<span style="color:var(--ac);font-weight:700">${m}</span>`).replace(/\b(bear|bull|neutral)\b/gi,m=>`<span style="color:var(--ac5)">${m}</span>`);
+  }catch(e){el.classList.remove('loading');el.innerHTML='<span style="color:var(--ac3)">API error — run from claude.ai for live AI analysis.</span>'}
+}
+
+// ══════════════════════════════════════════════════
+// PROFILES
+// ══════════════════════════════════════════════════
+function getState(){return{scores:J(scores),scenario,userPt:J(userPt),aiPt:J(aiPt),pairs:J(pairs)}}
+function loadState(p){
+  scores=J(p.scores);scenario=p.scenario;userPt=J(p.userPt);aiPt=J(p.aiPt);
+  if(p.pairs)pairs=J(p.pairs);
+  // migrate old memePairs saved in profiles into pairs[]
+  if(p.memePairs&&p.memePairs.length){
+    const existingNames=new Set(pairs.map(x=>x.name));
+    p.memePairs.forEach(mp=>{
+      if(!existingNames.has(mp.name)&&pairs.length<10){
+        pairs.push({name:mp.name,il:mp.il||8,pc:mp.pc||8,cp:mp.cp||8,risk:mp.risk||8,color:mp.color||PAIR_COLORS[pairs.length%PAIR_COLORS.length],type:'meme',draggable:true,memeA:mp.memeA||mp.name.split('/')[0],memeB:mp.memeB||mp.name.split('/')[1]||'?'});
+      }
+    });
+  }
+  syncMiniSliders();syncStep1Sliders();updateScenBtns();document.getElementById('scen-label').textContent=scenario.toUpperCase();renderMatrix();updateSidebar();updateRight();scheduleAI();
+}
+function saveToNewSlot(){const i=profiles.findIndex(p=>p===null);if(i===-1){showModal('Slots Full','All 10 slots used. Overwrite an existing one.',[{label:'OK',cls:'confirm',fn:'closeModal()'}],false);return}showSaveModal(i,true)}
+function showSaveModal(i,n){document.getElementById('modal-input').style.display='block';document.getElementById('modal-input').value=n?`Profile ${i+1}`:(profiles[i]?.label||`Profile ${i+1}`);showModal(n?'Save New Profile':`Edit Profile ${i+1}`,'Enter a label:',
+  [{label:'Cancel',cls:'',fn:'closeModal()'},{label:'Save',cls:'confirm',fn:`commitSave(${i})`}],true)}
+function commitSave(i){const label=document.getElementById('modal-input').value.trim()||`Profile ${i+1}`;profiles[i]={label,ts:new Date().toLocaleString(),state:getState()};activeProfileIdx=i;markClean();closeModal();renderProfileSlots();renderProfileToggles();updateProfileDisplay();showToast(`Saved: ${label}`)}
+function overwriteProfile(i){if(!profiles[i])return;profiles[i]={...profiles[i],ts:new Date().toLocaleString(),state:getState()};markClean();renderProfileSlots();renderProfileToggles();updateProfileDisplay();showToast(`Overwrote: ${profiles[i].label}`)}
+function loadProfile(i){if(!profiles[i])return;snapshot(`Load: ${profiles[i].label}`);activeProfileIdx=i;loadState(profiles[i].state);markClean();renderProfileSlots();renderProfileToggles();updateProfileDisplay();showToast(`Loaded: ${profiles[i].label}`)}
+function editProfileLabel(i){showSaveModal(i,false)}
+function deleteProfile(i){showModal('Delete',`Delete "${profiles[i]?.label}"?`,[{label:'Cancel',cls:'',fn:'closeModal()'},{label:'Delete',cls:'danger',fn:`profiles[${i}]=null;if(activeProfileIdx===${i})activeProfileIdx=null;closeModal();renderProfileSlots();renderProfileToggles();updateProfileDisplay()`}],false)}
+function renderProfileSlots(){const el=document.getElementById('profile-slots');if(!el)return;el.innerHTML=profiles.map((p,i)=>{if(!p)return`<div class="profile-slot empty-slot"><span class="slot-num">${i+1}</span><span class="slot-label" style="color:var(--t3);font-style:italic">Empty</span></div>`;const a=activeProfileIdx===i;return`<div class="profile-slot${a?' active-slot':''}" onclick="loadProfile(${i})"><span class="slot-num" style="${a?'color:var(--ac2)':''}">${i+1}</span><div style="flex:1;min-width:0"><div class="slot-label" style="${a?'color:var(--ac2)':''}">${p.label}</div><div class="slot-meta">${p.ts}</div></div><div class="slot-actions" onclick="event.stopPropagation()"><button class="slot-btn" onclick="editProfileLabel(${i})">✎</button><button class="slot-btn" onclick="overwriteProfile(${i})">↺</button><button class="slot-btn danger" onclick="deleteProfile(${i})">×</button></div></div>`}).join('')}
+function renderProfileToggles(){const el=document.getElementById('profile-toggle-bar');if(!el)return;const any=profiles.some(p=>p);if(!any){el.innerHTML='<span style="font-size:9px;color:var(--t3);font-family:var(--mono)">No saved profiles</span>';return}el.innerHTML=profiles.map((p,i)=>p?`<button class="ptog${activeProfileIdx===i?' active-p':''}" onclick="loadProfile(${i})">${p.label}</button>`:'').join('')}
+function updateProfileDisplay(){const l=activeProfileIdx!==null&&profiles[activeProfileIdx]?profiles[activeProfileIdx].label:'None';document.getElementById('active-profile-chip').textContent=l;document.getElementById('active-profile-chip').title=l;const s=document.getElementById('sb-profile');if(s)s.textContent=l;const r=document.getElementById('rp-profile');if(r)r.textContent=l;const b=document.getElementById('s1-profile-banner');if(b)b.textContent=l==='None'?'No profile active — scores are unsaved':`Active: ${l}`}
+
+// ══════════════════════════════════════════════════
+// STEP 1
+// ══════════════════════════════════════════════════
+function buildStep1(){
+  const el=document.getElementById('cv-grid-full');if(!el)return;
+  el.innerHTML=CV_DEFS.map(d=>`<div class="cv-card"><div class="cv-card-name">${d.name}</div><div class="cv-card-desc">${d.desc}</div><div style="display:flex;align-items:center;gap:9px;margin-top:8px"><input type="range" min="1" max="10" value="${scores[d.id]}" id="fs-${d.id}" style="flex:1" oninput="onFull('${d.id}',this.value)"><span id="fv-${d.id}" style="font-family:var(--mono);font-size:14px;color:var(--ac);font-weight:700;min-width:18px">${scores[d.id]}</span></div><div class="mini-bar" style="margin-top:5px"><div class="mini-fill" id="fb-${d.id}" style="width:${scores[d.id]*10}%"></div></div><div class="cv-ends"><span class="cv-end">← ${d.min}</span><span class="cv-end">${d.max} →</span></div></div>`).join('');
+  renderProfileSlots();renderAISuggestions();updateProfileDisplay();
+}
+function onFull(id,val){scores[id]=parseInt(val);document.getElementById('fv-'+id).textContent=val;document.getElementById('fb-'+id).style.width=(val*10)+'%';const m=document.getElementById('ms-'+id);if(m){m.value=val;document.getElementById('mv-'+id).textContent=val;document.getElementById('mf-'+id).style.width=(val*10)+'%'}markDirty()}
+function applyAndShowMatrix(){snapshot('Apply scores');recalcUserPt();showTab('matrix');renderMatrix();updateSidebar();updateRight();scheduleAI()}
+function renderAISuggestions(){
+  const el=document.getElementById('ai-suggestions-list');if(!el)return;
+  const items=[
+    {c:'var(--ac)',t:'🔗 DeFiLlama Integration (Active in v2.2)',b:'Live TVL, fee APR and volume data is now pulled from DeFiLlama for each pair when you click ⟳ Live Data. APR overlays appear on the matrix and inform the AI analysis.'},
+    {c:'var(--ac4)',t:'📊 Realised IL Calculator (Next)',b:'Pull 30-day OHLCV from CoinGecko to compute actual historical IL for each pair. This makes the IL axis dynamic — a 40% ETH drop auto-shifts BTC/USDC rightward.'},
+    {c:'var(--ac2)',t:'🌊 Uniswap v3 Tick Liquidity (Advanced)',b:'Query The Graph subgraph for tick-level liquidity. Shows whether a pair has deep or thin liquidity at your chosen range, directly affecting Capital Preservation scoring.'},
+    {c:'var(--ac5)',t:'📈 Rolling Correlation Engine (Next)',b:'90-day Pearson correlation from CoinGecko price data. The Pair Correlation axis becomes truly dynamic — ETH/BTC correlation drops meaningfully in altseason.'},
+  ];
+  el.innerHTML=items.map(s=>`<div class="suggestion-item" style="border-left-color:${s.c}"><div class="sug-title" style="color:${s.c}">${s.t}</div><div class="sug-body">${s.b}</div></div>`).join('');
+}
+
+// ══════════════════════════════════════════════════
+// SAVE / RESET / UNDO / SCENARIO
+// ══════════════════════════════════════════════════
+function doSave(){if(activeProfileIdx!==null){showModal('Save','',
+  [{label:'Save as New',cls:'confirm',fn:'saveToNewSlot();closeModal()'},{label:`Overwrite "${profiles[activeProfileIdx]?.label}"`,cls:'',fn:`overwriteProfile(${activeProfileIdx});closeModal()`},{label:'Cancel',cls:'',fn:'closeModal()'}],false)}else saveToNewSlot()}
+function confirmReset(){showModal('Reset to Default','Reset all values to factory defaults?',
+  [{label:'Cancel',cls:'',fn:'closeModal()'},{label:'Reset',cls:'danger',fn:'doReset()'}],false)}
+function doReset(){snapshot('Reset');scores=J(DEFAULTS.scores);scenario='neutral';recalcUserPt();pairs=pairs.filter(p=>p.type!=='meme');closeModal();syncMiniSliders();syncStep1Sliders();updateScenBtns();document.getElementById('scen-label').textContent='NEUTRAL';markClean();renderMatrix();updateSidebar();updateRight();scheduleAI()}
+function snapshot(l){undoStack.push({label:l,ts:new Date().toLocaleTimeString(),scores:J(scores),scenario,userPt:J(userPt),pairs:J(pairs)});if(undoStack.length>15)undoStack.shift();markDirty();renderUndoHistory();document.getElementById('btn-undo').disabled=false}
+function markDirty(){isDirty=true;document.getElementById('dirty-dot').classList.add('show')}
+function markClean(){isDirty=false;document.getElementById('dirty-dot').classList.remove('show')}
+function doUndo(){if(!undoStack.length)return;const p=undoStack.pop();scores=p.scores;scenario=p.scenario;userPt=p.userPt;if(p.pairs)pairs=p.pairs;syncMiniSliders();syncStep1Sliders();updateScenBtns();document.getElementById('scen-label').textContent=scenario.toUpperCase();markDirty();renderMatrix();updateSidebar();updateRight();scheduleAI();renderUndoHistory();document.getElementById('btn-undo').disabled=undoStack.length===0;showToast(`↩ ${p.label}`)}
+function renderUndoHistory(){const el=document.getElementById('undo-history');if(!el)return;document.getElementById('btn-undo').disabled=undoStack.length===0;if(!undoStack.length){el.textContent='No actions yet';return}el.innerHTML=undoStack.slice().reverse().slice(0,5).map((s,i)=>`<div style="padding:2px 0;opacity:${Math.max(0.3,1-i*0.18)}">${i===0?'<span style="color:var(--ac)">→ </span>':'  '}${s.label} <span style="color:var(--t3)">${s.ts}</span></div>`).join('')}
+function setScen(s){snapshot(`Scenario→${s}`);scenario=s;updateScenBtns();document.getElementById('scen-label').textContent=s.toUpperCase();document.getElementById('scen-label').style.color=s==='bull'?'var(--ac4)':s==='bear'?'var(--ac3)':'var(--ac)';markDirty();renderMatrix();updateSidebar();updateRight();scheduleAI()}
+function updateScenBtns(){['bear','neutral','bull'].forEach(k=>document.querySelectorAll('.scen-btn.'+k).forEach(b=>b.classList.toggle('on',k===scenario)))}
+function showTab(t){const m=t==='matrix';document.getElementById('step1-overlay').classList.toggle('show',!m);document.getElementById('tab-scores').classList.toggle('on',!m);document.getElementById('tab-matrix').classList.toggle('on',m);if(!m)buildStep1();if(m){renderMatrix();updateSidebar();updateRight();renderProfileToggles()}}
+function showModal(ti,bo,bt,inp){document.getElementById('modal-title').textContent=ti;document.getElementById('modal-body').innerHTML=bo;document.getElementById('modal-input').style.display=inp?'block':'none';if(inp)document.getElementById('modal-input').value='';document.getElementById('modal-actions').innerHTML=bt.map(b=>`<button class="mbtn ${b.cls}" onclick="${b.fn}">${b.label}</button>`).join('');document.getElementById('modal').classList.add('show');if(inp)setTimeout(()=>document.getElementById('modal-input').focus(),50)}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+function toggleNotes(){document.getElementById('notes-panel').classList.toggle('open');document.getElementById('notes-meta').textContent=`${new Date().toLocaleTimeString()} · ${scenario.toUpperCase()} · IL:${userPt.il.toFixed(1)} PC:${userPt.pc.toFixed(1)} · Best:${pairs.map(p=>({...p,d:dist(p,userPt)})).sort((a,b)=>a.d-b.d)[0].name}`}
+function addNote(){const t=document.getElementById('notes-area').value.trim();if(!t)return;notes.unshift({id:Date.now(),text:t,ts:new Date().toLocaleString()});document.getElementById('notes-area').value='';renderNotes()}
+function renderNotes(){const el=document.getElementById('feedback-list');if(!notes.length){el.innerHTML='<div style="font-size:10px;color:var(--t3)">No notes yet.</div>';return}el.innerHTML=notes.map(n=>`<div class="fb-item"><button class="fb-del" onclick="delNote(${n.id})">×</button><div class="fb-time">${n.ts}</div><div class="fb-text">${n.text.replace(/\n/g,'<br>')}</div></div>`).join('')}
+function delNote(id){notes=notes.filter(n=>n.id!==id);renderNotes()}
+function clearNotes(){if(notes.length&&confirm('Clear all?')){notes=[];renderNotes()}}
+function exportNotes(){dl('lp-feedback.json',JSON.stringify({exported:new Date().toISOString(),notes},null,2))}
+function exportState(){dl('lp-matrix-v2-5.json',JSON.stringify({exported:new Date().toISOString(),scores,scenario,userPt,aiPt,pairs,profiles,notes},null,2))}
+function dl(n,c){const a=document.createElement('a');a.href='data:application/json;charset=utf-8,'+encodeURIComponent(c);a.download=n;a.click()}
+function showToast(m){const t=document.getElementById('undo-toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+
+// INIT — drag handlers registered once here, not inside render functions
+recalcUserPt();calcAiPt();
+buildMiniSliders();buildStep1();
+renderMatrix();updateSidebar();updateRight();
+renderUndoHistory();renderProfileToggles();updateProfileDisplay();
+setupDrag();
+refreshLiveData();
+</script>
+</body>
+</html>
